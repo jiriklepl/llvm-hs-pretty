@@ -4,7 +4,7 @@
 
 * Update version to match llvm-hs versioning scheme
 * Update Example.hs and add it to the cabal file so it builds
-* Update printing to work with llvm-hs-9.0.1.1
+* Large update to the main printing code to bring it in line with llvm-hs-9.0.1.1
 * Review tests and update test harness
 * Update README.md
 

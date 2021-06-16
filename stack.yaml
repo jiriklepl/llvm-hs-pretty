@@ -9,7 +9,7 @@ packages:
 
 extra-deps:
 - git: git@github.com:llvm-hs/llvm-hs.git
-  commit: f9fbb35fc6c393e311c2d50935130b6202c17270
+  commit: fb31d039066fb0e5f7d8a41110bb589733e0263d
   subdirs:
   - llvm-hs
   - llvm-hs-pure
