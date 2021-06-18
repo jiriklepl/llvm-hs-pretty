@@ -11,7 +11,7 @@
 {-# OPTIONS_GHC -fwarn-incomplete-uni-patterns #-}
 
 module LLVM.Pretty (
-  renderll, ppllvm, ppll, ppGlobal, ppDefinition, ppBasicBlock, ppTerminator,
+  render, ppllvm, ppll, ppGlobal, ppDefinition, ppBasicBlock, ppTerminator,
   ppInstruction, ppCallableOperand, ppOperand, ppMetadata, ppConstant, ppModule
 ) where
 
@@ -1597,15 +1597,15 @@ ppLayoutOptions = LayoutOptions (AvailablePerLine 100 0.5)
 -- -------------------------------------------------------------------------------
 
 -- | Render the result of pretty-printing to text
-renderll :: Doc ann -> Text
-renderll = renderLazy . layoutPretty ppLayoutOptions
+render :: Doc ann -> Text
+render = renderLazy . layoutPretty ppLayoutOptions
 
 -- | Pretty print a LLVM module
 ppllvm :: MonadModuleBuilder m => Module -> m Text
 ppllvm m = do
   prettyMod <- ppModule m
-  return $ renderll prettyMod
+  return $ render prettyMod
 
 -- | Pretty print a printable LLVM expression
 ppll :: Pretty a => a -> Text
-ppll = renderll . pretty
+ppll = render . pretty
