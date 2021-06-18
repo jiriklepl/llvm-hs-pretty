@@ -12,7 +12,6 @@ import LLVM.AST.Global
 
 -- Builders
 import LLVM.IRBuilder.Module
-import LLVM.IRBuilder.Monad hiding (block)
 
 import Data.Text.Lazy.IO as TIO
 import Control.Monad
@@ -51,18 +50,18 @@ astModule = defaultModule
 
 main :: IO ()
 main = do
-  let (prettyModule, prettyDef, prettyBlock) = fst $ runModuleBuilder emptyModuleBuilder $ do
-                                                 mapM_ emitDefn $ moduleDefinitions astModule
-                                                 prettyModule <- ppllvm astModule
-                                                 prettyDef <- liftM renderll $ ppDefinition defAdd
-                                                 prettyBlock <- liftM renderll $ ppBasicBlock block
-                                                 return (prettyModule, prettyDef, prettyBlock)
+  let (pModule, pDef, pBlock) = fst $ runModuleBuilder emptyModuleBuilder $ do
+                                        mapM_ emitDefn $ moduleDefinitions astModule
+                                        prettyModule <- ppllvm astModule
+                                        prettyDef <- liftM renderll $ ppDefinition defAdd
+                                        prettyBlock <- liftM renderll $ ppBasicBlock block
+                                        return (prettyModule, prettyDef, prettyBlock)
 
   TIO.putStrLn "=== Module ==="
-  TIO.putStrLn prettyModule
+  TIO.putStrLn pModule
 
   TIO.putStrLn "=== Definition ==="
-  TIO.putStrLn prettyDef
+  TIO.putStrLn pDef
 
   TIO.putStrLn "=== Basic Block ==="
-  TIO.putStrLn prettyBlock
+  TIO.putStrLn pBlock
