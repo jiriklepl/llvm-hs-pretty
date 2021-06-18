@@ -31,13 +31,6 @@ library
     prettyprinter        >= 1.2,
     llvm-hs-pure         >= 9.0.1.1 && < 10.0
 
-executable Example
-  main-is: Example.hs
-  build-depends:
-    base, text, llvm-hs-pretty,
-    llvm-hs              >= 9.0.1.1  && < 10.0,
-    llvm-hs-pure         >= 9.0.1.1  && < 10.0
-
 Test-suite test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      tests
