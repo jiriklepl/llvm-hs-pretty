@@ -12,7 +12,8 @@
 
 module LLVM.Pretty (
   render, ppllvm, ppll, ppGlobal, ppDefinition, ppBasicBlock, ppTerminator,
-  ppInstruction, ppCallableOperand, ppOperand, ppMetadata, ppConstant, ppModule
+  ppNamed, ppInstruction, ppCallableOperand, ppOperand, ppMetadata, ppConstant,
+  ppModule
 ) where
 
 import Prelude hiding ((<$>))
