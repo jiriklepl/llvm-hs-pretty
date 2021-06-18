@@ -20,3 +20,6 @@ flags:
 
 ghc-options:
   llvm-hs: -optcxx=-std=c++11 -optcxx=-lstdc++ -optcxx=-fno-rtti -optcxx=-Wno-init-list-lifetime -optcxx=-Wno-stringop-overflow
+  "$targets": -Wall
+
+rebuild-ghc-options: true
