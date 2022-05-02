@@ -1,6 +1,7 @@
 module Main where
 
 import LLVM.Context
+import qualified LLVM.IRBuilder as IR
 import LLVM.Pretty (ppllvm)
 import qualified LLVM.Module as M
 
@@ -30,7 +31,7 @@ llvmFile fname = do
   withContext $ \ctx -> do
     res <- M.withModuleFromLLVMAssembly ctx str $ \mod -> do
       ast <- M.moduleAST mod
-      let str = ppllvm ast
+      str <- fst <$> IR.runModuleBuilderT IR.emptyModuleBuilder (ppllvm ast)
       T.writeFile ("tests/output" </> takeFileName fname) str
       trip <- M.withModuleFromLLVMAssembly ctx (T.unpack str) (const $ return ())
       {-T.putStrLn str-}
