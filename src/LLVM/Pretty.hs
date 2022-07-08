@@ -1,3 +1,5 @@
+{-# LANGUAGE Trustworthy #-}
+
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase #-}
@@ -6,7 +8,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 {-# OPTIONS_GHC -fwarn-incomplete-uni-patterns #-}
 
@@ -16,64 +17,62 @@ module LLVM.Pretty (
   ppModule
 ) where
 
-import Prelude hiding ((<$>))
-import GHC.Word
+import safe Prelude
+import safe GHC.Word
 
 import LLVM.AST.Typed
 
-import LLVM.AST
-import LLVM.AST.Global
-import LLVM.AST.Type
+import safe LLVM.AST
+import safe LLVM.AST.Global
+import safe LLVM.AST.Type
 
-import LLVM.DataLayout
-import LLVM.AST.Attribute
-import LLVM.AST.DataLayout
-import LLVM.AST.COMDAT
-import qualified LLVM.AST.Linkage as L
-import qualified LLVM.AST.Visibility as V
-import qualified LLVM.AST.CallingConvention as CC
-import qualified LLVM.AST.Constant as C
-import qualified LLVM.AST.FloatingPointPredicate as FP
-import qualified LLVM.AST.IntegerPredicate as IP
-import qualified LLVM.AST.InlineAssembly as IA
-import qualified LLVM.AST.AddrSpace as AS
-import qualified LLVM.AST.Float as F
-import qualified LLVM.AST.RMWOperation as RMW
-import LLVM.AST.Operand hiding (DIGLobalVariable(..), GlobalVariable, Module, NoReturn, PointerType)
-import qualified LLVM.AST.Operand as O
-import LLVM.AST.ParameterAttribute as PA
-import LLVM.AST.FunctionAttribute as FA
-import LLVM.IRBuilder.Module hiding (global)
+import safe LLVM.DataLayout
+import safe LLVM.AST.Attribute
+import safe LLVM.AST.DataLayout
+import safe LLVM.AST.COMDAT
+import safe qualified LLVM.AST.Linkage as L
+import safe qualified LLVM.AST.Visibility as V
+import safe qualified LLVM.AST.CallingConvention as CC
+import safe qualified LLVM.AST.Constant as C
+import safe qualified LLVM.AST.FloatingPointPredicate as FP
+import safe qualified LLVM.AST.IntegerPredicate as IP
+import safe qualified LLVM.AST.InlineAssembly as IA
+import safe qualified LLVM.AST.AddrSpace as AS
+import safe qualified LLVM.AST.Float as F
+import safe qualified LLVM.AST.RMWOperation as RMW
+import safe LLVM.AST.Operand hiding (DIGLobalVariable(..), GlobalVariable, Module, NoReturn, PointerType)
+import safe qualified LLVM.AST.Operand as O
+import safe LLVM.AST.ParameterAttribute as PA
+import safe LLVM.AST.FunctionAttribute as FA
+import LLVM.IRBuilder.Module ( MonadModuleBuilder )
 
-import Data.String
+import safe Data.String
 
-import Text.Printf
-import Data.Text.Lazy.Encoding
-import Data.Text.Lazy (Text, pack, unpack)
-import qualified Data.ByteString.Short as SBF
-import qualified Data.ByteString.Lazy.Char8 as BF
-import Data.ByteString.Lazy (fromStrict)
-import Data.ByteString.Internal (w2c)
-import Data.Text.Prettyprint.Doc
-import qualified Data.Text.Prettyprint.Doc as P
-import Data.Text.Prettyprint.Doc.Render.Text
+import safe Text.Printf
+import safe Data.Text.Lazy.Encoding
+import safe Data.Text.Lazy (Text, pack, unpack)
+import safe qualified Data.ByteString.Short as SBF
+import safe qualified Data.ByteString.Lazy.Char8 as BF
+import safe Data.ByteString.Lazy (fromStrict)
+import safe Prettyprinter
+import safe qualified Prettyprinter as P
+import safe Prettyprinter.Render.Text
 
-import qualified Data.ByteString.Char8 as BL
-import qualified Data.ByteString.Short as BS
-import Data.Char (chr, ord, isAscii, isControl, isLetter, isDigit)
-import Data.Foldable (toList)
-import Data.Int
-import Data.Either
-import Data.List (intersperse)
-import Data.Maybe (isJust, mapMaybe)
+import safe qualified Data.ByteString.Char8 as BL
+import safe qualified Data.ByteString.Short as BS
+import safe Data.Char (chr, ord, isAscii, isControl, isLetter, isDigit)
+import safe Data.Foldable (toList)
+import safe Data.Int
+import safe Data.Either
+import safe Data.List (intersperse)
+import safe Data.Maybe (isJust, mapMaybe)
 -- import Data.Monoid ((<>))
-import Numeric (showHex)
+import safe Numeric (showHex)
 
-import Data.Array.Unsafe
-import Data.Array.MArray
-import Data.Array.ST
-import Control.Monad (liftM)
-import Control.Monad.ST
+import Data.Array.Unsafe ( castSTUArray )
+import Data.Array.ST ( STUArray, readArray, MArray(newArray) )
+import safe Control.Monad (liftM)
+import safe Control.Monad.ST
 
 -------------------------------------------------------------------------------
 -- Utils
@@ -134,7 +133,7 @@ ppBool x False = mempty
 
 -- XXX: horrible hack
 unShort :: BS.ShortByteString -> [Char]
-unShort xs = fmap (toEnum . fromIntegral) $ BS.unpack xs
+unShort xs = toEnum . fromIntegral <$> BS.unpack xs
 
 short :: BS.ShortByteString -> Doc ann
 short x = pretty (pack (unShort x))
@@ -176,7 +175,7 @@ instance Pretty Name where
         first = head name
         isFirst c = isLetter c || c == '-' || c == '_' || c == '$' || c == '.'
         isRest c = isDigit c || isFirst c
-  pretty (UnName x) = pretty ( (fromIntegral x) :: Int)
+  pretty (UnName x) = pretty ( fromIntegral x :: Int)
 
 instance Pretty Parameter where
   pretty (Parameter ty (UnName _) attrs) = pretty ty <+> ppParamAttributes attrs
@@ -194,14 +193,14 @@ ppArguments (op, attrs) = do
 ppParams :: (a -> Doc ann) -> ([a], Bool) -> Doc ann
 ppParams ppParam (ps, varrg) = parens . commas $ fmap ppParam ps ++ vargs
   where
-    vargs = if varrg then ["..."] else []
+    vargs = ["..." | varrg]
 
 ppParamsM :: MonadModuleBuilder m => (a -> m (Doc ann)) -> ([a], Bool) -> m (Doc ann)
 ppParamsM ppParam (ps, varrg) = do
   prettyParams <- mapM ppParam ps
   return $ parens $ commas $ prettyParams ++ vargs
   where
-    vargs = if varrg then ["..."] else []
+    vargs = ["..." | varrg]
 
 instance Pretty UnnamedAddr where
   pretty LocalAddr = "local_unnamed_addr"
@@ -220,12 +219,12 @@ instance Pretty Type where
   pretty (PointerType ref (AS.AddrSpace addr))
     | addr == 0 = pretty ref <> "*"
     | otherwise = pretty ref <+> "addrspace" <> parens (pretty addr) <> "*"
-  pretty ft@(FunctionType {..}) = pretty resultType <+> ppFunctionArgumentTypes ft
-  pretty (VectorType {..}) = "<" <> pretty nVectorElements <+> "x" <+> pretty elementType <> ">"
-  pretty (StructureType {..}) = if isPacked
-                               then "<{" <> (commas $ fmap pretty elementTypes ) <> "}>"
-                               else  "{" <> (commas $ fmap pretty elementTypes ) <> "}"
-  pretty (ArrayType {..}) = brackets $ pretty nArrayElements <+> "x" <+> pretty elementType
+  pretty ft@FunctionType {..} = pretty resultType <+> ppFunctionArgumentTypes ft
+  pretty VectorType {..} = "<" <> pretty nVectorElements <+> "x" <+> pretty elementType <> ">"
+  pretty StructureType {..} = if isPacked
+                               then "<{" <> commas (fmap pretty elementTypes) <> "}>"
+                               else  "{" <> commas (fmap pretty elementTypes) <> "}"
+  pretty ArrayType {..} = brackets $ pretty nArrayElements <+> "x" <+> pretty elementType
   pretty (NamedTypeReference name) = "%" <> pretty name
   pretty MetadataType = "metadata"
   pretty TokenType = "token"
@@ -245,24 +244,24 @@ ppGlobal g
       case basicBlocks of
         [] -> do
           prettyParams <- ppParamsM (liftM (pretty . fromRight (error "(Malformed AST)")) . typeOf) parameters
-          return $ ("declare" <+> pretty linkage <+> pretty callingConvention
+          return ("declare" <+> pretty linkage <+> pretty callingConvention
             <+> ppReturnAttributes returnAttributes <+> pretty returnType <+> global (pretty name)
             <> prettyParams <+> ppFunctionAttributes functionAttributes <+> align <+> gcName <+> pre)
 
         -- single unnamed block is special cased, and won't parse otherwise... yeah good times
         [b@(BasicBlock (UnName _) _ _)] -> do
           prettyBB <- ppSingleBlock b
-          return $ (("define" <+> pretty linkage <+> pretty callingConvention
+          return (("define" <+> pretty linkage <+> pretty callingConvention
                               <+> ppReturnAttributes returnAttributes <+> pretty returnType <+> global (pretty name)
                               <> ppParams pretty parameters <+> ppFunctionAttributes functionAttributes <+> align <+> gcName <+> pre)
-                    `wrapbraces` (indent 2 prettyBB))
+                    `wrapbraces` indent 2 prettyBB)
 
         bs -> do
           prettyBBs <- mapM ppBasicBlock bs
-          return $ (("define" <+> pretty linkage <+> pretty callingConvention
+          return (("define" <+> pretty linkage <+> pretty callingConvention
                               <+> ppReturnAttributes returnAttributes <+> pretty returnType <+> global (pretty name)
                               <> ppParams pretty parameters <+> ppFunctionAttributes functionAttributes <+> align <+> gcName <+> pre)
-                    `wrapbraces` (vcat prettyBBs))
+                    `wrapbraces` vcat prettyBBs)
 
   | GlobalVariable {..} <- g = do
       let hasInitializer = isJust initializer
@@ -570,11 +569,11 @@ ppInstruction i
   | SRem {..}   <- i = do { prettyMeta <- ppInstrMeta metadata; prettyOp0 <- ppTypedM ppOperand operand0; prettyOp1 <- ppOperand operand1; return $ "srem"  <+> prettyOp0 `cma` prettyOp1 <+> prettyMeta }
   | URem {..}   <- i = do { prettyMeta <- ppInstrMeta metadata; prettyOp0 <- ppTypedM ppOperand operand0; prettyOp1 <- ppOperand operand1; return $ "urem"  <+> prettyOp0 `cma` prettyOp1 <+> prettyMeta }
 
-  | FAdd {..}   <- i = do { prettyMeta <- ppInstrMeta metadata; prettyOp0 <- ppTypedM ppOperand operand0; prettyOp1 <- ppOperand operand1; return $ "fadd" <+> (pretty fastMathFlags) <+> prettyOp0 `cma` prettyOp1 <+> prettyMeta }
-  | FSub {..}   <- i = do { prettyMeta <- ppInstrMeta metadata; prettyOp0 <- ppTypedM ppOperand operand0; prettyOp1 <- ppOperand operand1; return $ "fsub" <+> (pretty fastMathFlags) <+> prettyOp0 `cma` prettyOp1 <+> prettyMeta }
-  | FMul {..}   <- i = do { prettyMeta <- ppInstrMeta metadata; prettyOp0 <- ppTypedM ppOperand operand0; prettyOp1 <- ppOperand operand1; return $ "fmul" <+> (pretty fastMathFlags) <+> prettyOp0 `cma` prettyOp1 <+> prettyMeta }
-  | FDiv {..}   <- i = do { prettyMeta <- ppInstrMeta metadata; prettyOp0 <- ppTypedM ppOperand operand0; prettyOp1 <- ppOperand operand1; return $ "fdiv" <+> (pretty fastMathFlags) <+> prettyOp0 `cma` prettyOp1 <+> prettyMeta }
-  | FRem {..}   <- i = do { prettyMeta <- ppInstrMeta metadata; prettyOp0 <- ppTypedM ppOperand operand0; prettyOp1 <- ppOperand operand1; return $ "frem" <+> (pretty fastMathFlags) <+> prettyOp0 `cma` prettyOp1 <+> prettyMeta }
+  | FAdd {..}   <- i = do { prettyMeta <- ppInstrMeta metadata; prettyOp0 <- ppTypedM ppOperand operand0; prettyOp1 <- ppOperand operand1; return $ "fadd" <+> pretty fastMathFlags <+> prettyOp0 `cma` prettyOp1 <+> prettyMeta }
+  | FSub {..}   <- i = do { prettyMeta <- ppInstrMeta metadata; prettyOp0 <- ppTypedM ppOperand operand0; prettyOp1 <- ppOperand operand1; return $ "fsub" <+> pretty fastMathFlags <+> prettyOp0 `cma` prettyOp1 <+> prettyMeta }
+  | FMul {..}   <- i = do { prettyMeta <- ppInstrMeta metadata; prettyOp0 <- ppTypedM ppOperand operand0; prettyOp1 <- ppOperand operand1; return $ "fmul" <+> pretty fastMathFlags <+> prettyOp0 `cma` prettyOp1 <+> prettyMeta }
+  | FDiv {..}   <- i = do { prettyMeta <- ppInstrMeta metadata; prettyOp0 <- ppTypedM ppOperand operand0; prettyOp1 <- ppOperand operand1; return $ "fdiv" <+> pretty fastMathFlags <+> prettyOp0 `cma` prettyOp1 <+> prettyMeta }
+  | FRem {..}   <- i = do { prettyMeta <- ppInstrMeta metadata; prettyOp0 <- ppTypedM ppOperand operand0; prettyOp1 <- ppOperand operand1; return $ "frem" <+> pretty fastMathFlags <+> prettyOp0 `cma` prettyOp1 <+> prettyMeta }
   | FCmp {..}   <- i = do { prettyMeta <- ppInstrMeta metadata; prettyOp0 <- ppTypedM ppOperand operand0; prettyOp1 <- ppOperand operand1; return $ "fcmp" <+> pretty fpPredicate <+> prettyOp0 `cma` prettyOp1 <+> prettyMeta }
 
   | Alloca {..} <- i = do
@@ -902,10 +901,10 @@ ppDICount (DICountConstant c) = pure $ pretty c
 ppDICount (DICountVariable v) = ppMDRefM v ppDIVariable
 
 ppDITemplateParameter :: MonadModuleBuilder m => DITemplateParameter -> m (Doc ann)
-ppDITemplateParameter (DITemplateTypeParameter {..}) = do
+ppDITemplateParameter DITemplateTypeParameter {..} = do
   prettyType <- ppMDRefM (case type' of { (Just t) -> t; Nothing -> error "type field in DITemplateTypeParameter is required (malformed AST)" }) ppDIType
   return $ ppDINode "DITemplateTypeParameter" [ ("name", ppSbs name), ("type", Just prettyType) ]
-ppDITemplateParameter (DITemplateValueParameter {..}) = do
+ppDITemplateParameter DITemplateValueParameter {..} = do
   prettyType <- case type' of {Just x -> do { x' <- ppMDRefM x ppDIType; return $ Just x' }; Nothing -> pure Nothing }
   prettyValue <- ppMaybeMetadata value
   return $ ppDINode "DITemplateValueParameter"
@@ -926,10 +925,10 @@ ppDIVariable (DILocalVariable v) = ppDILocalVariable v
 
 ppDICompileUnit :: MonadModuleBuilder m => DICompileUnit -> m (Doc ann)
 ppDICompileUnit cu@CompileUnit {..} = do
-  prettyImports <- mapM (flip ppMDRefM ppDIImportedEntity) imports
-  prettyEnums <- mapM (flip ppMDRefM ppDICompositeType) enums
+  prettyImports <- mapM (`ppMDRefM` ppDIImportedEntity) imports
+  prettyEnums <- mapM (`ppMDRefM` ppDICompositeType) enums
   prettyRTs <- mapM (ppEitherM ppDIType ppDISubprogram) retainedTypes
-  prettyGlobals <- mapM (flip ppMDRefM ppDIGlobalVariableExpression) globals
+  prettyGlobals <- mapM (`ppMDRefM` ppDIGlobalVariableExpression) globals
   return $ "distinct" <+> ppDINode "DICompileUnit"
                       [ ("language", Just (pretty language))
                       , ("file", Just (pretty file))
@@ -1017,10 +1016,10 @@ ppDISubprogram Subprogram {..} = do
   prettyType <- case type' of { Just x -> do { p <- ppMDRefM x ppDISubroutineType; return $ Just p }; Nothing -> pure Nothing }
   prettyCT <- case containingType of { Just x -> do { p <- ppMDRefM x ppDIType; return $ Just p }; Nothing -> pure Nothing }
   prettyUnit <- case unit of { Just x -> do { p <- ppMDRefM x ppDICompileUnit; return $ Just p }; Nothing -> pure Nothing }
-  prettyTParams <- mapM (flip ppMDRefM ppDITemplateParameter) templateParams
+  prettyTParams <- mapM (`ppMDRefM` ppDITemplateParameter) templateParams
   prettyDecl <- case declaration of { Just x -> do { p <- ppMDRefM x ppDISubprogram; return $ Just p }; Nothing -> pure Nothing }
-  prettyRNs <- mapM (flip ppMDRefM ppDILocalVariable) retainedNodes
-  prettyTTs <- mapM (flip ppMDRefM ppDIType) thrownTypes
+  prettyRNs <- mapM (`ppMDRefM` ppDILocalVariable) retainedNodes
+  prettyTTs <- mapM (`ppMDRefM` ppDIType) thrownTypes
   let header = ppMaybe (if definition then Just ("distinct " :: [Char]) else Nothing)
   return $ header <>
            ppDINode "DISubprogram"
@@ -1056,7 +1055,7 @@ instance Pretty ChecksumKind where
   pretty SHA1 = "CSK_SHA1"
 
 instance Pretty DIBasicType where
-  pretty (BasicType {..}) = ppDINode "DIBasicType"
+  pretty BasicType {..} = ppDINode "DIBasicType"
     [ ("tag", Just (pretty tag))
     , ("name", ppSbs name)
     , ("size", Just (pretty sizeInBits))
@@ -1321,15 +1320,15 @@ ppConstant c
 
   | C.Null constantType <- c = return $ ppNullInitializer constantType
 
-#if MIN_VERSION_llvm_hs_pure(5,1,3)
+
   | C.AggregateZero constantType <- c = return "zeroinitializer"
-#endif
+
 
   | C.Undef {} <- c = return "undef"
   | C.TokenNone {} <- c = return "none"
   | C.BlockAddress fn blk <- c = return $ "blockaddress" <> parens (commas [ global (pretty fn), local' (pretty blk) ])
 
-  | C.Array {..} <- c,  memberType == (IntegerType 8) = return $ "c" <> (dquotes $ hcat [ppIntAsChar val | C.Int _ val <- memberValues])
+  | C.Array {..} <- c,  memberType == IntegerType 8 = return $ "c" <> dquotes (hcat [ppIntAsChar val | C.Int _ val <- memberValues])
   | C.Array {..} <- c = do
       prettyMembs <- mapM (ppTypedM ppConstant) memberValues
       return $ brackets $ commas prettyMembs
@@ -1338,7 +1337,7 @@ ppConstant c
       ~(Right ta) <- typeOf address
       let Right argTy = getElementType ta
       prettyAIs <- mapM (ppTypedM ppConstant) (address:indices)
-      let prettyBounds = case inBounds of { True -> "inbounds"; False -> mempty }
+      let prettyBounds = if inBounds then "inbounds" else mempty
       return $ "getelementptr" <+> prettyBounds <+> parens (commas (pretty argTy : prettyAIs))
 
   | C.BitCast {..}        <- c = do { prettyOp0 <- ppTypedM ppConstant operand0; return $ "bitcast" <+> parens (prettyOp0 <+> "to" <+> pretty type') }
@@ -1492,7 +1491,7 @@ ppAlign x | x == 0    = mempty
 phiIncoming :: MonadModuleBuilder m => (Operand, Name) -> m (Doc ann)
 phiIncoming (op, nm) = do
   prettyOp <- ppOperand op
-  return $ brackets (prettyOp `cma` (local' (pretty nm)))
+  return $ brackets (prettyOp `cma` local' (pretty nm))
 
 ppShuffleMask :: MonadModuleBuilder m => [Int32] -> m (Doc ann)
 ppShuffleMask m = do
@@ -1512,9 +1511,9 @@ ppNullInitializer ArrayType {..} = "zeroinitializer"
 ppNullInitializer _ = error "Non-pointer argument. (Malformed AST)"
 
 ppCall :: MonadModuleBuilder m => Instruction -> m (Doc ann)
-ppCall (Call { function = Right f,..}) = do
+ppCall Call { function = Right f,..} = do
   ~(Right typeOfF) <- typeOf f
-  let (functionType@FunctionType {..}) = case (referencedType typeOfF) of
+  let functionType@FunctionType {..} = case referencedType typeOfF of
                                            fty@FunctionType {..} -> fty
                                            _ -> error "Calling non function type. (Malformed AST)"
   let ftype = if isVarArg
@@ -1560,9 +1559,9 @@ ppReturnAttributes pas = hsep $ fmap pretty pas
 -- Differs from Call in record name conventions only so needs a seperate almost
 -- identical function. :(
 ppInvoke :: MonadModuleBuilder m => Terminator -> m (Doc ann)
-ppInvoke (Invoke { function' = Right f,..}) = do
+ppInvoke Invoke { function' = Right f,..} = do
   ~(Right typeOfF) <- typeOf f
-  let (functionType@FunctionType {..}) = case referencedType typeOfF of
+  let functionType@FunctionType {..} = case referencedType typeOfF of
                                            fty@FunctionType{..} -> fty
                                            _ -> error "Invoking non-function type. (Malformed AST)"
   let ftype = if isVarArg
@@ -1579,7 +1578,7 @@ ppSingleBlock :: MonadModuleBuilder m => BasicBlock -> m (Doc ann)
 ppSingleBlock (BasicBlock nm instrs term) = do
   prettyInsts <- mapM (ppNamed ppInstruction) instrs
   prettyTerm <- ppNamed ppTerminator term
-  return $ (vcat $ prettyInsts ++ [prettyTerm])
+  return . vcat $ prettyInsts ++ [prettyTerm]
 
 -- According to <https://stackoverflow.com/a/7002812/3877993> this is
 -- the best way to cast floats to words.
